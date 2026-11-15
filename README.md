@@ -42,7 +42,7 @@ Pengepul ikan di wilayah pesisir umumnya masih mencatat setoran tangkapan dan ka
 ### 2. Instalasi Dependensi
 
 ```bash
-git clone <url-repository-ini>
+git clone https://github.com/adisaputra0/tangkapanku.git
 cd tangkapanku
 npm install
 ```
