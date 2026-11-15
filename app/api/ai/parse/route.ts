@@ -249,7 +249,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: { apiVersion: "v1beta" },
+    });
     let draftResult: Draft;
 
     try {
