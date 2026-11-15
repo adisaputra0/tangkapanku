@@ -267,6 +267,11 @@ export default function ReportsPage() {
                                 Severity {anom.severity}/3
                               </span>
                             </div>
+                            {anom.fishermen?.name && (
+                              <p className="text-xs font-medium text-amber-300">
+                                Nelayan: {anom.fishermen.name}
+                              </p>
+                            )}
                             <p className="text-xs text-slate-300 leading-relaxed">
                               {anom.detail?.message}
                             </p>
