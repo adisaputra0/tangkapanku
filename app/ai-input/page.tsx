@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Sidebar from "@/components/Sidebar";
 
 interface Fisherman {
   id: string;
@@ -40,6 +41,12 @@ const formatRupiah = (num: number) =>
   }).format(num);
 
 export default function SmartInputPage() {
+  const [orgInfo, setOrgInfo] = useState<{
+    name: string;
+    location: string | null;
+  }>({ name: "Organisasi Pengepul", location: null });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const [fishermen, setFishermen] = useState<Fisherman[]>([]);
   const [textInput, setTextInput] = useState("");
   const [inputSource, setInputSource] = useState<"text" | "voice" | "photo">(
@@ -73,7 +80,6 @@ export default function SmartInputPage() {
   });
   const [savingManual, setSavingManual] = useState(false);
 
-  // Transform raw ai_inputs row ke state kartu yang bisa diedit
   const mapRawDraftToEditable = (
     raw: any,
     fishermenList: Fisherman[],
@@ -87,7 +93,6 @@ export default function SmartInputPage() {
       created_at: raw.created_at,
       unclear: raw.parsed?.unclear || [],
       items: parsedItems.map((it: any) => {
-        // Fallback pencocokan nama jika dari seed belum ada matched_fisherman_id
         let matchedId = it.matched_fisherman_id || "";
         if (!matchedId && it.fisherman_name) {
           const found = fishermenList.find(
@@ -121,10 +126,21 @@ export default function SmartInputPage() {
   };
 
   const loadInitialData = async () => {
-    const [fishRes, draftsRes] = await Promise.all([
+    const [fishRes, draftsRes, dashRes] = await Promise.all([
       fetch("/api/fishermen"),
       fetch("/api/ai/drafts"),
+      fetch("/api/dashboard"),
     ]);
+
+    if (dashRes.ok) {
+      const dashJson = await dashRes.json();
+      if (dashJson.organization) {
+        setOrgInfo({
+          name: dashJson.organization.name,
+          location: dashJson.organization.location,
+        });
+      }
+    }
 
     let loadedFishermen: Fisherman[] = [];
     if (fishRes.ok) {
@@ -154,7 +170,6 @@ export default function SmartInputPage() {
   useEffect(() => {
     loadInitialData();
 
-    // Setup Web Speech API (lang: 'id-ID')
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
       (window as any).webkitSpeechRecognition;
@@ -258,7 +273,6 @@ export default function SmartInputPage() {
     }
   };
 
-  // Update field pada kartu draf sebelum dikonfirmasi
   const updateDraftItem = (
     draftId: string,
     itemIndex: number,
@@ -276,7 +290,6 @@ export default function SmartInputPage() {
             next.needs_manual_fisherman = false;
           }
 
-          // Otomatis hitung ulang amount jika catch
           if (next.type === "catch") {
             const w = parseFloat(next.weight_kg) || 0;
             const p = parseFloat(next.price_per_kg) || 0;
@@ -290,7 +303,6 @@ export default function SmartInputPage() {
   };
 
   const handleConfirmDraft = async (draft: PendingDraft) => {
-    // Pastikan semua nelayan sudah dipilih
     const missingFisherman = draft.items.some((it) => !it.fisherman_id);
     if (missingFisherman) {
       alert("Pilih nama nelayan terlebih dahulu pada semua kartu transaksi.");
@@ -348,7 +360,6 @@ export default function SmartInputPage() {
     }
   };
 
-  // Simpan via Fallback Form Manual
   const handleManualFallbackSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingManual(true);
@@ -388,573 +399,644 @@ export default function SmartInputPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-[#090b0e] text-[#ececec]">
+      {/* Reusable Sidebar */}
+      <Sidebar
+        orgName={orgInfo.name}
+        orgLocation={orgInfo.location}
+        pendingDrafts={drafts.length}
+        mobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
+      />
+
+      {/* Main Content Wrapper */}
+      <div className="lg:pl-72 flex flex-col min-h-screen">
+        {/* Mobile Top Header */}
+        <header className="lg:hidden sticky top-0 z-20 bg-[#090b0e] border-b border-[#1e232e] px-5 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="text-sm text-slate-400 hover:text-white"
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="w-9 h-9 rounded-xl bg-[#11141b] border border-[#1e232e] flex flex-col items-center justify-center gap-1.5"
+              aria-label="Buka Sidebar"
             >
-              ← Dashboard
-            </Link>
-            <span className="text-slate-700">|</span>
-            <h1 className="text-lg font-bold text-white">Input Pintar AI</h1>
+              <span className="w-4 h-[1.5px] bg-[#ececec] rounded" />
+              <span className="w-3 h-[1.5px] bg-[#4ec38e] rounded" />
+              <span className="w-4 h-[1.5px] bg-[#ececec] rounded" />
+            </button>
+            <div>
+              <span className="text-[10px] font-bold tracking-[0.2em] text-[#4ec38e] uppercase block">
+                INPUT PINTAR AI
+              </span>
+              <span className="text-xs font-semibold text-white truncate max-w-[180px] block">
+                {orgInfo.name}
+              </span>
+            </div>
           </div>
 
           <Link
             href="/transactions"
-            className="text-xs text-blue-400 hover:underline"
+            className="text-xs font-mono text-[#4ec38e] hover:underline"
           >
-            Lihat Buku Kas →
+            Buku Kas &rarr;
           </Link>
-        </div>
-      </header>
+        </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {toastMessage && (
-          <div className="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-sm flex items-center justify-between">
-            <span>✓ {toastMessage}</span>
-            <button
-              onClick={() => setToastMessage("")}
-              className="text-xs underline"
-            >
-              Tutup
-            </button>
-          </div>
-        )}
-
-        {/* Panel Input Suara / Teks / Foto Nota */}
-        <form
-          onSubmit={handleParseSubmit}
-          className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-lg"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        {/* Main Workspace */}
+        <main className="flex-1 max-w-5xl w-full mx-auto px-5 sm:px-8 lg:px-10 py-8 space-y-8">
+          {/* Page Header */}
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[#1e232e] pb-6">
             <div>
-              <h2 className="font-semibold text-white">
-                Catat dengan Suara, Teks, atau Foto Nota
-              </h2>
-              <p className="text-xs text-slate-400">
-                Contoh: &ldquo;Pak Ahmad setor 40 kilo tongkol harga 28 ribu,
-                kasbon 200 ribu&rdquo;
-              </p>
+              <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-[#4ec38e] block mb-1.5">
+                MULTIMODAL AI EXTRACTOR
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-white">
+                Catat Transaksi{" "}
+                <span className="font-serif italic font-normal text-[#34a875]">
+                  Suara, Teks &amp; Nota
+                </span>
+              </h1>
             </div>
 
-            {speechSupported && (
-              <button
-                type="button"
-                onClick={toggleRecording}
-                className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition ${
-                  isRecording
-                    ? "bg-red-600 text-white animate-pulse"
-                    : "bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700"
-                }`}
-              >
-                <span className="w-2.5 h-2.5 rounded-full bg-current" />
-                {isRecording
-                  ? "Mendengarkan (Klik Stop)..."
-                  : "Rekam Suara (ID)"}
-              </button>
-            )}
+            <Link
+              href="/transactions"
+              className="text-xs font-mono text-[#9aa3b2] hover:text-white transition-colors"
+            >
+              Lihat Buku Kas &rarr;
+            </Link>
           </div>
 
-          <textarea
-            rows={3}
-            placeholder={
-              isRecording
-                ? "Silakan bicara sekarang..."
-                : "Ketik catatan transaksi atau tekan tombol Rekam Suara di atas..."
-            }
-            value={textInput}
-            onChange={(e) => {
-              setTextInput(e.target.value);
-              if (!imageFile) setInputSource("text");
-            }}
-            className="w-full bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 p-3.5 rounded-xl text-sm focus:outline-none focus:border-blue-500"
-          />
+          {/* Success Toast */}
+          {toastMessage && (
+            <div className="p-4 rounded-2xl bg-[#101c17] border border-[#22382e] text-[#4ec38e] text-xs sm:text-sm flex items-center justify-between gap-4">
+              <span>✓ {toastMessage}</span>
+              <button
+                onClick={() => setToastMessage("")}
+                className="text-xs font-mono uppercase tracking-wider text-[#8ba398] hover:text-white"
+              >
+                Tutup
+              </button>
+            </div>
+          )}
 
-          {/* Upload & Preview Foto Nota */}
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <label className="cursor-pointer px-3.5 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition">
-                📷 Upload Foto Nota (Max 4MB)
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={handleImageChange}
-                  className="hidden"
-                />
-              </label>
+          {/* Multimodal Input Panel */}
+          <form
+            onSubmit={handleParseSubmit}
+            className="bg-[#11141b] border border-[#1e232e] rounded-[28px] p-6 sm:p-8 space-y-5"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#6d7687] block mb-1">
+                  LANGKAH 01 • INPUT MENTAH
+                </span>
+                <h2 className="text-base sm:text-lg font-semibold text-white">
+                  Rekam Suara, Ketik Catatan, atau Unggah Foto Nota
+                </h2>
+                <p className="text-xs text-[#8b94a5] mt-1 font-light">
+                  Contoh:{" "}
+                  <span className="font-serif italic text-[#cfd5df]">
+                    &ldquo;Pak Ahmad setor 40 kilo tongkol harga 28 ribu, kasbon
+                    200 ribu&rdquo;
+                  </span>
+                </p>
+              </div>
 
-              {imageFile && (
-                <div className="flex items-center gap-2 text-xs text-slate-300 bg-slate-800/70 px-2.5 py-1.5 rounded-lg">
-                  <span>{imageFile.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImageFile(null);
-                      setImagePreview(null);
-                      setInputSource("text");
-                    }}
-                    className="text-red-400 hover:text-red-300 font-bold"
-                  >
-                    ×
-                  </button>
-                </div>
+              {speechSupported && (
+                <button
+                  type="button"
+                  onClick={toggleRecording}
+                  className={`px-4 py-2.5 rounded-full text-xs font-semibold flex items-center gap-2.5 transition-colors ${
+                    isRecording
+                      ? "bg-[#36181d] border border-[#6e2b35] text-[#f28b96]"
+                      : "bg-[#151922] hover:bg-[#1b202c] text-[#4ec38e] border border-[#263b32]"
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      isRecording ? "bg-[#f28b96]" : "bg-[#34a875]"
+                    }`}
+                  />
+                  {isRecording
+                    ? "Mendengarkan (Klik Stop)..."
+                    : "Rekam Suara (id-ID)"}
+                </button>
               )}
             </div>
 
-            <button
-              type="submit"
-              disabled={parsing || (!textInput.trim() && !imageFile)}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition disabled:opacity-40"
-            >
-              {parsing ? "AI Sedang Menganalisis..." : "Buat Draf Transaksi →"}
-            </button>
-          </div>
+            <textarea
+              rows={3}
+              placeholder={
+                isRecording
+                  ? "Silakan bicara sekarang..."
+                  : "Ketik catatan transaksi di sini atau tekan tombol Rekam Suara di atas..."
+              }
+              value={textInput}
+              onChange={(e) => {
+                setTextInput(e.target.value);
+                if (!imageFile) setInputSource("text");
+              }}
+              className="w-full bg-[#090b0e] border border-[#222834] text-white placeholder-[#525b6c] p-4 rounded-2xl text-sm leading-relaxed focus:outline-none focus:border-[#158052] transition-colors"
+            />
 
-          {imagePreview && (
-            <div className="pt-2">
-              <img
-                src={imagePreview}
-                alt="Preview Nota"
-                className="max-h-48 rounded-lg border border-slate-700 object-contain"
-              />
-            </div>
-          )}
-        </form>
+            {/* Upload & Submit Row */}
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="cursor-pointer px-4 py-2.5 text-xs font-medium bg-[#151922] hover:bg-[#1b202c] text-[#cfd5df] border border-[#262c3a] rounded-full transition-colors">
+                  Upload Foto Nota (Max 4MB)
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                </label>
 
-        {/* Error Alert + Fallback ke Form Manual */}
-        {parseError && (
-          <div className="bg-red-950/40 border border-red-900 rounded-2xl p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-red-300 font-medium">⚠ {parseError}</p>
+                {imageFile && (
+                  <div className="flex items-center gap-2 text-xs text-[#4ec38e] bg-[#101c17] border border-[#22382e] px-3.5 py-1.5 rounded-full font-mono">
+                    <span className="truncate max-w-[180px]">
+                      {imageFile.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageFile(null);
+                        setImagePreview(null);
+                        setInputSource("text");
+                      }}
+                      className="text-[#f28b96] hover:text-white font-bold ml-1"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <button
-                type="button"
-                onClick={() => setShowManualFallback(!showManualFallback)}
-                className="text-xs text-blue-400 underline"
+                type="submit"
+                disabled={parsing || (!textInput.trim() && !imageFile)}
+                className="px-6 py-3 bg-[#158052] hover:bg-[#19935f] text-white text-xs uppercase tracking-[0.18em] font-bold rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {showManualFallback
-                  ? "Sembunyikan Form Manual"
-                  : "Buka Form Manual"}
+                {parsing
+                  ? "AI Sedang Menganalisis..."
+                  : "Buat Draf Transaksi →"}
               </button>
             </div>
 
-            {showManualFallback && (
-              <form
-                onSubmit={handleManualFallbackSubmit}
-                className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3"
-              >
-                <h3 className="text-sm font-bold text-white">
-                  Fallback: Catat Transaksi Manual
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-1">
-                      Nelayan
-                    </label>
-                    <select
-                      required
-                      value={manualForm.fisherman_id}
-                      onChange={(e) =>
-                        setManualForm({
-                          ...manualForm,
-                          fisherman_id: e.target.value,
-                        })
-                      }
-                      className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-2 rounded-lg text-sm"
-                    >
-                      {fishermen.map((f) => (
-                        <option key={f.id} value={f.id}>
-                          {f.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+            {imagePreview && (
+              <div className="pt-2">
+                <div className="inline-block p-2 rounded-2xl bg-[#090b0e] border border-[#222834]">
+                  <img
+                    src={imagePreview}
+                    alt="Preview Nota"
+                    className="max-h-48 rounded-xl object-contain"
+                  />
+                </div>
+              </div>
+            )}
+          </form>
 
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-1">
-                      Jenis Transaksi
-                    </label>
-                    <select
-                      value={manualForm.type}
-                      onChange={(e) =>
-                        setManualForm({
-                          ...manualForm,
-                          type: e.target.value as any,
-                        })
-                      }
-                      className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-2 rounded-lg text-sm"
-                    >
-                      <option value="catch">Setoran Ikan (Catch)</option>
-                      <option value="advance">Kasbon (Advance)</option>
-                      <option value="repayment">Pelunasan (Repayment)</option>
-                    </select>
-                  </div>
+          {/* Error Alert + Fallback ke Form Manual */}
+          {parseError && (
+            <div className="bg-[#1b1113] border border-[#4a2026] rounded-[28px] p-6 space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs sm:text-sm text-[#f28b96] font-medium">
+                  ⚠ {parseError}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowManualFallback(!showManualFallback)}
+                  className="text-xs font-mono text-[#4ec38e] hover:underline"
+                >
+                  {showManualFallback
+                    ? "Sembunyikan Form Manual"
+                    : "Buka Form Manual"}
+                </button>
+              </div>
 
-                  {manualForm.type === "catch" ? (
-                    <>
-                      <div>
-                        <label className="block text-xs text-slate-400 mb-1">
-                          Jenis Ikan
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="cth: Tongkol"
-                          value={manualForm.species}
-                          onChange={(e) =>
-                            setManualForm({
-                              ...manualForm,
-                              species: e.target.value,
-                            })
-                          }
-                          className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-2 rounded-lg text-sm"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-xs text-slate-400 mb-1">
-                            Berat (kg)
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            required
-                            value={manualForm.weight_kg}
-                            onChange={(e) =>
-                              setManualForm({
-                                ...manualForm,
-                                weight_kg: e.target.value,
-                              })
-                            }
-                            className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-2 rounded-lg text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-slate-400 mb-1">
-                            Harga/kg
-                          </label>
-                          <input
-                            type="number"
-                            required
-                            value={manualForm.price_per_kg}
-                            onChange={(e) =>
-                              setManualForm({
-                                ...manualForm,
-                                price_per_kg: e.target.value,
-                              })
-                            }
-                            className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-2 rounded-lg text-sm"
-                          />
-                        </div>
-                      </div>
-                    </>
-                  ) : (
+              {showManualFallback && (
+                <form
+                  onSubmit={handleManualFallbackSubmit}
+                  className="bg-[#11141b] border border-[#1e232e] p-5 rounded-2xl space-y-4"
+                >
+                  <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-[#4ec38e]">
+                    Fallback: Catat Transaksi Manual
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1">
-                        Nominal (Rp)
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
+                        Nelayan
                       </label>
-                      <input
-                        type="number"
+                      <select
                         required
-                        value={manualForm.amount}
+                        value={manualForm.fisherman_id}
                         onChange={(e) =>
                           setManualForm({
                             ...manualForm,
-                            amount: e.target.value,
+                            fisherman_id: e.target.value,
                           })
                         }
-                        className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-2 rounded-lg text-sm"
-                      />
+                        className="w-full bg-[#090b0e] border border-[#222834] text-white px-3.5 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#158052]"
+                      >
+                        {fishermen.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  )}
-                </div>
 
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={savingManual}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg"
-                  >
-                    {savingManual
-                      ? "Menyimpan..."
-                      : "Simpan Manual ke Buku Kas"}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        )}
-
-        {/* Daftar Draf Menunggu Konfirmasi */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-white">
-              Draf Menunggu Konfirmasi ({drafts.length})
-            </h2>
-            <span className="text-xs text-slate-400">
-              Periksa & konfirmasi sebelum masuk ke buku kas
-            </span>
-          </div>
-
-          {drafts.length === 0 ? (
-            <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-8 text-center text-sm text-slate-500">
-              Belum ada draf transaksi pending. Silakan rekam suara, ketik teks,
-              atau unggah foto nota di atas.
-            </div>
-          ) : (
-            drafts.map((draft) => (
-              <div
-                key={draft.id}
-                className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl"
-              >
-                {/* Header Draf */}
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 text-xs rounded bg-blue-950 text-blue-400 border border-blue-800 uppercase">
-                        {draft.source}
-                      </span>
-                      {draft.confidence !== null && (
-                        <span className="text-xs text-slate-400">
-                          Keyakinan AI:{" "}
-                          {Math.round(Number(draft.confidence) * 100)}%
-                        </span>
-                      )}
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
+                        Jenis Transaksi
+                      </label>
+                      <select
+                        value={manualForm.type}
+                        onChange={(e) =>
+                          setManualForm({
+                            ...manualForm,
+                            type: e.target.value as any,
+                          })
+                        }
+                        className="w-full bg-[#090b0e] border border-[#222834] text-white px-3.5 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#158052]"
+                      >
+                        <option value="catch">Setoran Ikan (Catch)</option>
+                        <option value="advance">Kasbon (Advance)</option>
+                        <option value="repayment">Pelunasan (Repayment)</option>
+                      </select>
                     </div>
-                    {draft.raw_text && (
-                      <p className="text-xs text-slate-300 italic pt-1">
-                        &ldquo;{draft.raw_text}&rdquo;
-                      </p>
+
+                    {manualForm.type === "catch" ? (
+                      <>
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
+                            Jenis Ikan
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="cth: Tongkol"
+                            value={manualForm.species}
+                            onChange={(e) =>
+                              setManualForm({
+                                ...manualForm,
+                                species: e.target.value,
+                              })
+                            }
+                            className="w-full bg-[#090b0e] border border-[#222834] text-white px-3.5 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#158052]"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
+                              Berat (kg)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              required
+                              value={manualForm.weight_kg}
+                              onChange={(e) =>
+                                setManualForm({
+                                  ...manualForm,
+                                  weight_kg: e.target.value,
+                                })
+                              }
+                              className="w-full bg-[#090b0e] border border-[#222834] text-white px-3.5 py-2.5 rounded-xl text-sm font-mono focus:outline-none focus:border-[#158052]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
+                              Harga/kg
+                            </label>
+                            <input
+                              type="number"
+                              required
+                              value={manualForm.price_per_kg}
+                              onChange={(e) =>
+                                setManualForm({
+                                  ...manualForm,
+                                  price_per_kg: e.target.value,
+                                })
+                              }
+                              className="w-full bg-[#090b0e] border border-[#222834] text-white px-3.5 py-2.5 rounded-xl text-sm font-mono focus:outline-none focus:border-[#158052]"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
+                          Nominal (Rp)
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          value={manualForm.amount}
+                          onChange={(e) =>
+                            setManualForm({
+                              ...manualForm,
+                              amount: e.target.value,
+                            })
+                          }
+                          className="w-full bg-[#090b0e] border border-[#222834] text-white px-3.5 py-2.5 rounded-xl text-sm font-mono focus:outline-none focus:border-[#158052]"
+                        />
+                      </div>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex justify-end pt-2">
                     <button
-                      type="button"
-                      disabled={confirmingId === draft.id}
-                      onClick={() => handleRejectDraft(draft.id)}
-                      className="px-3.5 py-2 text-xs font-medium text-red-400 bg-red-950/40 hover:bg-red-900/40 border border-red-900/60 rounded-lg transition"
+                      type="submit"
+                      disabled={savingManual}
+                      className="px-5 py-2.5 bg-[#158052] hover:bg-[#19935f] text-white text-xs uppercase tracking-wider font-bold rounded-full transition-colors"
                     >
-                      Tolak Draf
-                    </button>
-                    <button
-                      type="button"
-                      disabled={confirmingId === draft.id}
-                      onClick={() => handleConfirmDraft(draft)}
-                      className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg transition disabled:opacity-50"
-                    >
-                      {confirmingId === draft.id
+                      {savingManual
                         ? "Menyimpan..."
-                        : `✓ Konfirmasi (${draft.items.length} Item)`}
+                        : "Simpan Manual ke Buku Kas"}
                     </button>
                   </div>
-                </div>
+                </form>
+              )}
+            </div>
+          )}
 
-                {/* Daftar Unclear dari AI */}
-                {draft.unclear.length > 0 && (
-                  <div className="bg-amber-950/40 border border-amber-800/70 rounded-xl p-3 space-y-1">
-                    <p className="text-xs font-semibold text-amber-400">
-                      ⚠ Perlu Perhatian Pengepul:
-                    </p>
-                    <ul className="list-disc list-inside text-xs text-amber-200/90 space-y-0.5">
-                      {draft.unclear.map((u, idx) => (
-                        <li key={idx}>{u}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+          {/* Daftar Draf Menunggu Konfirmasi */}
+          <section className="space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#4ec38e] block mb-1">
+                  LANGKAH 02 • HUMAN-IN-THE-LOOP
+                </span>
+                <h2 className="text-lg font-semibold text-white">
+                  Draf Menunggu Konfirmasi ({drafts.length})
+                </h2>
+              </div>
+              <span className="text-xs text-[#8b94a5]">
+                Periksa &amp; koreksi bila perlu sebelum masuk ke buku kas
+              </span>
+            </div>
 
-                {/* Kartu Item Draf yang Bisa Diedit */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {draft.items.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-4 rounded-xl border space-y-3 ${
-                        item.needs_manual_fisherman
-                          ? "bg-amber-950/15 border-amber-700/70"
-                          : "bg-slate-950/80 border-slate-800"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Item #{idx + 1}
+            {drafts.length === 0 ? (
+              <div className="bg-[#11141b] border border-[#1e232e] rounded-[28px] p-10 text-center space-y-2">
+                <p className="text-sm text-[#9aa3b2]">
+                  Belum ada draf transaksi pending.
+                </p>
+                <p className="text-xs text-[#6d7687]">
+                  Rekam suara, ketik catatan, atau unggah foto nota pada panel
+                  di atas untuk memulai.
+                </p>
+              </div>
+            ) : (
+              drafts.map((draft) => (
+                <div
+                  key={draft.id}
+                  className="bg-[#11141b] border border-[#1e232e] rounded-[28px] p-6 sm:p-7 space-y-5"
+                >
+                  {/* Header Draf */}
+                  <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#1e232e] pb-4">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2.5">
+                        <span className="px-2.5 py-0.5 text-[10px] font-mono rounded-full bg-[#101c17] text-[#4ec38e] border border-[#22382e] uppercase">
+                          {draft.source}
                         </span>
-                        <select
-                          value={item.type}
-                          onChange={(e) =>
-                            updateDraftItem(
-                              draft.id,
-                              idx,
-                              "type",
-                              e.target.value,
-                            )
-                          }
-                          className="bg-slate-800 border border-slate-700 text-xs text-white px-2.5 py-1 rounded-md"
-                        >
-                          <option value="catch">Setoran Ikan (Catch)</option>
-                          <option value="advance">Kasbon (Advance)</option>
-                          <option value="repayment">
-                            Pelunasan (Repayment)
-                          </option>
-                        </select>
+                        {draft.confidence !== null && (
+                          <span className="text-xs font-mono text-[#8b94a5]">
+                            Keyakinan AI:{" "}
+                            {Math.round(Number(draft.confidence) * 100)}%
+                          </span>
+                        )}
                       </div>
+                      {draft.raw_text && (
+                        <p className="font-serif italic text-sm sm:text-base text-[#cfd5df] pt-1">
+                          &ldquo;{draft.raw_text}&rdquo;
+                        </p>
+                      )}
+                    </div>
 
-                      {/* Dropdown Pilih Nelayan */}
-                      <div>
-                        <label className="block text-xs text-slate-400 mb-1">
-                          Nelayan{" "}
-                          {item.fisherman_name
-                            ? `(AI: "${item.fisherman_name}")`
-                            : ""}
-                        </label>
-                        <select
-                          value={item.fisherman_id}
-                          onChange={(e) =>
-                            updateDraftItem(
-                              draft.id,
-                              idx,
-                              "fisherman_id",
-                              e.target.value,
-                            )
-                          }
-                          className={`w-full px-3 py-2 rounded-lg text-sm border focus:outline-none ${
-                            !item.fisherman_id
-                              ? "bg-amber-950/40 border-amber-500 text-amber-200"
-                              : "bg-slate-800 border-slate-700 text-slate-100"
-                          }`}
-                        >
-                          <option value="">
-                            -- Pilih Nelayan Secara Manual --
-                          </option>
-                          {fishermen.map((f) => (
-                            <option key={f.id} value={f.id}>
-                              {f.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        disabled={confirmingId === draft.id}
+                        onClick={() => handleRejectDraft(draft.id)}
+                        className="px-4 py-2 text-xs font-medium text-[#f28b96] bg-[#241316] hover:bg-[#331a1f] border border-[#4a2026] rounded-full transition-colors"
+                      >
+                        Tolak Draf
+                      </button>
+                      <button
+                        type="button"
+                        disabled={confirmingId === draft.id}
+                        onClick={() => handleConfirmDraft(draft)}
+                        className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-white bg-[#158052] hover:bg-[#19935f] rounded-full transition-colors disabled:opacity-50"
+                      >
+                        {confirmingId === draft.id
+                          ? "Menyimpan..."
+                          : `✓ Konfirmasi (${draft.items.length} Item)`}
+                      </button>
+                    </div>
+                  </div>
 
-                      {item.type === "catch" ? (
-                        <>
-                          <div>
-                            <label className="block text-xs text-slate-400 mb-1">
-                              Jenis Ikan
-                            </label>
-                            <input
-                              type="text"
-                              value={item.species}
-                              onChange={(e) =>
-                                updateDraftItem(
-                                  draft.id,
-                                  idx,
-                                  "species",
-                                  e.target.value,
-                                )
-                              }
-                              className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-1.5 rounded-lg text-sm"
-                            />
-                          </div>
+                  {/* Daftar Unclear dari AI */}
+                  {draft.unclear.length > 0 && (
+                    <div className="bg-[#261f14] border border-[#3d311e] rounded-2xl p-4 space-y-1.5">
+                      <p className="text-xs font-semibold text-[#d9a05b]">
+                        ⚠ Perlu Perhatian Pengepul:
+                      </p>
+                      <ul className="list-disc list-inside text-xs text-[#e5cba8] space-y-0.5">
+                        {draft.unclear.map((u, idx) => (
+                          <li key={idx}>{u}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="block text-xs text-slate-400 mb-1">
-                                Berat (kg)
-                              </label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={item.weight_kg}
-                                onChange={(e) =>
-                                  updateDraftItem(
-                                    draft.id,
-                                    idx,
-                                    "weight_kg",
-                                    e.target.value,
-                                  )
-                                }
-                                className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-1.5 rounded-lg text-sm"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-slate-400 mb-1">
-                                Harga / kg (Rp)
-                              </label>
-                              <input
-                                type="number"
-                                value={item.price_per_kg}
-                                onChange={(e) =>
-                                  updateDraftItem(
-                                    draft.id,
-                                    idx,
-                                    "price_per_kg",
-                                    e.target.value,
-                                  )
-                                }
-                                className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-1.5 rounded-lg text-sm"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg flex items-center justify-between">
-                            <span className="text-xs text-slate-400">
-                              Total Terhitung:
-                            </span>
-                            <span className="text-sm font-bold text-emerald-400">
-                              {formatRupiah(Number(item.amount) || 0)}
-                            </span>
-                          </div>
-                        </>
-                      ) : (
-                        <div>
-                          <label className="block text-xs text-slate-400 mb-1">
-                            Nominal (Rp)
-                          </label>
-                          <input
-                            type="number"
-                            value={item.amount}
+                  {/* Kartu Item Draf yang Bisa Diedit */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {draft.items.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-5 rounded-2xl border space-y-3.5 ${
+                          item.needs_manual_fisherman
+                            ? "bg-[#1a1610] border-[#4a3b22]"
+                            : "bg-[#090b0e] border-[#1e232e]"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#8b94a5]">
+                            ITEM #{idx + 1}
+                          </span>
+                          <select
+                            value={item.type}
                             onChange={(e) =>
                               updateDraftItem(
                                 draft.id,
                                 idx,
-                                "amount",
+                                "type",
                                 e.target.value,
                               )
                             }
-                            className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-1.5 rounded-lg text-sm"
+                            className="bg-[#151922] border border-[#262c3a] text-xs text-white px-3 py-1.5 rounded-full focus:outline-none focus:border-[#158052]"
+                          >
+                            <option value="catch">Setoran Ikan (Catch)</option>
+                            <option value="advance">Kasbon (Advance)</option>
+                            <option value="repayment">
+                              Pelunasan (Repayment)
+                            </option>
+                          </select>
+                        </div>
+
+                        {/* Dropdown Pilih Nelayan */}
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
+                            Nelayan{" "}
+                            {item.fisherman_name
+                              ? `(AI: "${item.fisherman_name}")`
+                              : ""}
+                          </label>
+                          <select
+                            value={item.fisherman_id}
+                            onChange={(e) =>
+                              updateDraftItem(
+                                draft.id,
+                                idx,
+                                "fisherman_id",
+                                e.target.value,
+                              )
+                            }
+                            className={`w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none ${
+                              !item.fisherman_id
+                                ? "bg-[#261f14] border-[#6b522c] text-[#f0cfa0]"
+                                : "bg-[#11141b] border-[#222834] text-white focus:border-[#158052]"
+                            }`}
+                          >
+                            <option value="">
+                              -- Pilih Nelayan Secara Manual --
+                            </option>
+                            {fishermen.map((f) => (
+                              <option key={f.id} value={f.id}>
+                                {f.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {item.type === "catch" ? (
+                          <>
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
+                                Jenis Ikan
+                              </label>
+                              <input
+                                type="text"
+                                value={item.species}
+                                onChange={(e) =>
+                                  updateDraftItem(
+                                    draft.id,
+                                    idx,
+                                    "species",
+                                    e.target.value,
+                                  )
+                                }
+                                className="w-full bg-[#11141b] border border-[#222834] text-white px-3.5 py-2 rounded-xl text-sm focus:outline-none focus:border-[#158052]"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
+                                  Berat (kg)
+                                </label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={item.weight_kg}
+                                  onChange={(e) =>
+                                    updateDraftItem(
+                                      draft.id,
+                                      idx,
+                                      "weight_kg",
+                                      e.target.value,
+                                    )
+                                  }
+                                  className="w-full bg-[#11141b] border border-[#222834] text-white px-3.5 py-2 rounded-xl text-sm font-mono focus:outline-none focus:border-[#158052]"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
+                                  Harga / kg (Rp)
+                                </label>
+                                <input
+                                  type="number"
+                                  value={item.price_per_kg}
+                                  onChange={(e) =>
+                                    updateDraftItem(
+                                      draft.id,
+                                      idx,
+                                      "price_per_kg",
+                                      e.target.value,
+                                    )
+                                  }
+                                  className="w-full bg-[#11141b] border border-[#222834] text-white px-3.5 py-2 rounded-xl text-sm font-mono focus:outline-none focus:border-[#158052]"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="bg-[#101c17] border border-[#22382e] px-4 py-2.5 rounded-xl flex items-center justify-between">
+                              <span className="text-xs text-[#8ba398]">
+                                Total Terhitung:
+                              </span>
+                              <span className="font-mono text-sm font-bold text-[#4ec38e]">
+                                {formatRupiah(Number(item.amount) || 0)}
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
+                              Nominal (Rp)
+                            </label>
+                            <input
+                              type="number"
+                              value={item.amount}
+                              onChange={(e) =>
+                                updateDraftItem(
+                                  draft.id,
+                                  idx,
+                                  "amount",
+                                  e.target.value,
+                                )
+                              }
+                              className="w-full bg-[#11141b] border border-[#222834] text-white px-3.5 py-2 rounded-xl text-sm font-mono focus:outline-none focus:border-[#158052]"
+                            />
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
+                            Catatan
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Opsional"
+                            value={item.note}
+                            onChange={(e) =>
+                              updateDraftItem(
+                                draft.id,
+                                idx,
+                                "note",
+                                e.target.value,
+                              )
+                            }
+                            className="w-full bg-[#11141b] border border-[#222834] text-white placeholder-[#525b6c] px-3.5 py-2 rounded-xl text-sm focus:outline-none focus:border-[#158052]"
                           />
                         </div>
-                      )}
-
-                      <div>
-                        <label className="block text-xs text-slate-400 mb-1">
-                          Catatan
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Opsional"
-                          value={item.note}
-                          onChange={(e) =>
-                            updateDraftItem(
-                              draft.id,
-                              idx,
-                              "note",
-                              e.target.value,
-                            )
-                          }
-                          className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-1.5 rounded-lg text-sm"
-                        />
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </section>
-      </main>
+              ))
+            )}
+          </section>
+        </main>
+      </div>
     </div>
   );
 }
