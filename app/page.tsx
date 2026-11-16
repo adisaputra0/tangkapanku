@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import LandingChatbot from "@/components/LandingChatbot";
 
 type InputMode = "suara" | "nota" | "teks";
 
@@ -950,6 +951,7 @@ export default function Home() {
             <span>Ditenagai Next.js, Supabase &amp; Gemini 2.5 Flash</span>
           </div>
         </div>
+        <LandingChatbot />
       </footer>
     </div>
   );

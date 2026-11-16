@@ -130,7 +130,7 @@ export default function Sidebar({
           onClick={onCloseMobile}
           className="flex items-center gap-3 group"
         >
-          <div className="w-10 h-10 rounded-full bg-[#151922] border border-[#262c3a] flex items-center justify-center overflow-hidden p-1.5 group-hover:border-[#158052] transition-colors">
+          <div className="w-10 h-10 rounded-full border border-[#262c3a] flex items-center justify-center overflow-hidden group-hover:border-[#158052] transition-colors">
             <Image
               src="/images/logo.png"
               alt="Logo TangkapanKu"
