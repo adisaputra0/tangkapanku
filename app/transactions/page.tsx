@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Sidebar from "@/components/Sidebar";
 
 interface FishermanOption {
   id: string;
@@ -30,7 +31,6 @@ const formatRupiah = (num: number) =>
     maximumFractionDigits: 0,
   }).format(num);
 
-// Helper waktu lokal untuk input datetime-local (hanya dipanggil di event handler)
 const getLocalDateTimeString = () => {
   const now = new Date();
   const offset = now.getTimezoneOffset() * 60000;
@@ -38,6 +38,13 @@ const getLocalDateTimeString = () => {
 };
 
 export default function TransactionsPage() {
+  const [orgInfo, setOrgInfo] = useState<{
+    name: string;
+    location: string | null;
+    pendingDrafts: number;
+  }>({ name: "Organisasi Pengepul", location: null, pendingDrafts: 0 });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
   const [fishermen, setFishermen] = useState<FishermanOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,20 +66,34 @@ export default function TransactionsPage() {
     price_per_kg: "",
     amount: "",
     note: "",
-    occurred_at: "", // <-- Diubah menjadi string kosong agar tidak memicu new Date() saat render
+    occurred_at: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
-  // Kalkulasi otomatis berat x harga
   const calculatedCatchAmount =
     (parseFloat(form.weight_kg) || 0) * (parseFloat(form.price_per_kg) || 0);
 
-  const fetchFishermen = async () => {
-    const res = await fetch("/api/fishermen");
-    if (res.ok) {
-      const json = await res.json();
+  const fetchInitialMeta = async () => {
+    const [fishRes, dashRes] = await Promise.all([
+      fetch("/api/fishermen"),
+      fetch("/api/dashboard"),
+    ]);
+
+    if (fishRes.ok) {
+      const json = await fishRes.json();
       setFishermen(json.fishermen || []);
+    }
+
+    if (dashRes.ok) {
+      const dJson = await dashRes.json();
+      if (dJson.organization) {
+        setOrgInfo({
+          name: dJson.organization.name,
+          location: dJson.organization.location,
+          pendingDrafts: dJson.summary?.pending_drafts || 0,
+        });
+      }
     }
   };
 
@@ -92,7 +113,7 @@ export default function TransactionsPage() {
   };
 
   useEffect(() => {
-    fetchFishermen();
+    fetchInitialMeta();
   }, []);
 
   useEffect(() => {
@@ -109,7 +130,7 @@ export default function TransactionsPage() {
       price_per_kg: "",
       amount: "",
       note: "",
-      occurred_at: getLocalDateTimeString(), // <-- Aman dipanggil di dalam event handler
+      occurred_at: getLocalDateTimeString(),
     });
     setFormError("");
     setIsModalOpen(true);
@@ -164,220 +185,287 @@ export default function TransactionsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
+    <div className="min-h-screen bg-[#090b0e] text-[#ececec]">
+      {/* Reusable Sidebar */}
+      <Sidebar
+        orgName={orgInfo.name}
+        orgLocation={orgInfo.location}
+        pendingDrafts={orgInfo.pendingDrafts}
+        mobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
+      />
+
+      {/* Main Content Wrapper */}
+      <div className="lg:pl-72 flex flex-col min-h-screen">
+        {/* Mobile Top Header */}
+        <header className="lg:hidden sticky top-0 z-20 bg-[#090b0e] border-b border-[#1e232e] px-5 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="text-sm text-slate-400 hover:text-white"
-            >
-              ← Dashboard
-            </Link>
-            <span className="text-slate-700">|</span>
-            <h1 className="text-lg font-bold text-white">Buku Kas Transaksi</h1>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Link
-              href="/ai-input"
-              className="px-3.5 py-2 text-sm bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700 rounded-lg transition"
-            >
-              Input Suara / Foto AI
-            </Link>
             <button
-              onClick={openModal}
-              className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition"
+              onClick={() => setMobileMenuOpen(true)}
+              className="w-9 h-9 rounded-xl bg-[#11141b] border border-[#1e232e] flex flex-col items-center justify-center gap-1.5"
+              aria-label="Buka Sidebar"
             >
-              + Catat Manual
+              <span className="w-4 h-[1.5px] bg-[#ececec] rounded" />
+              <span className="w-3 h-[1.5px] bg-[#4ec38e] rounded" />
+              <span className="w-4 h-[1.5px] bg-[#ececec] rounded" />
             </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 py-6 space-y-5">
-        {/* Filter Bar */}
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-wrap items-end gap-4">
-          <div>
-            <label className="block text-xs text-slate-400 mb-1">
-              Filter Nelayan
-            </label>
-            <select
-              value={filterFisherman}
-              onChange={(e) => setFilterFisherman(e.target.value)}
-              className="bg-slate-800 border border-slate-700 text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-            >
-              <option value="all">Semua Nelayan</option>
-              {fishermen.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
-            </select>
+            <div>
+              <span className="text-[10px] font-bold tracking-[0.2em] text-[#4ec38e] uppercase block">
+                BUKU KAS TRANSAKSI
+              </span>
+              <span className="text-xs font-semibold text-white truncate max-w-[170px] block">
+                {orgInfo.name}
+              </span>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-xs text-slate-400 mb-1">
-              Dari Tanggal
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="bg-slate-800 border border-slate-700 text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-            />
+          <button
+            onClick={openModal}
+            className="px-3.5 py-2 rounded-full bg-[#158052] text-white text-[11px] font-bold uppercase tracking-wider"
+          >
+            + Manual
+          </button>
+        </header>
+
+        {/* Main Workspace */}
+        <main className="flex-1 max-w-6xl w-full mx-auto px-5 sm:px-8 lg:px-10 py-8 space-y-8">
+          {/* Editorial Page Header */}
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[#1e232e] pb-6">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-[#4ec38e] block mb-1.5">
+                MUTASI &amp; ARUS KAS
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-white">
+                Buku Kas{" "}
+                <span className="font-serif italic font-normal text-[#34a875]">
+                  Transaksi
+                </span>{" "}
+                Nelayan
+              </h1>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/ai-input"
+                className="px-4 py-2.5 text-xs font-medium bg-[#11141b] hover:bg-[#151922] text-[#4ec38e] border border-[#22382e] rounded-full transition-colors"
+              >
+                Input Suara / Foto AI
+              </Link>
+              <button
+                onClick={openModal}
+                className="px-5 py-2.5 text-xs uppercase tracking-[0.16em] font-bold bg-[#158052] hover:bg-[#19935f] text-white rounded-full transition-colors"
+              >
+                + Catat Manual
+              </button>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-xs text-slate-400 mb-1">
-              Sampai Tanggal
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="bg-slate-800 border border-slate-700 text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-            />
+          {/* Filter Bar */}
+          <div className="bg-[#11141b] border border-[#1e232e] p-5 sm:p-6 rounded-[24px] flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[180px]">
+              <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-[#8b94a5] mb-2">
+                Filter Nelayan
+              </label>
+              <select
+                value={filterFisherman}
+                onChange={(e) => setFilterFisherman(e.target.value)}
+                className="w-full bg-[#090b0e] border border-[#222834] text-white px-3.5 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#158052] transition-colors"
+              >
+                <option value="all">Semua Nelayan</option>
+                {fishermen.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="w-full sm:w-auto">
+              <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-[#8b94a5] mb-2">
+                Dari Tanggal
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full bg-[#090b0e] border border-[#222834] text-white px-3.5 py-2.5 rounded-xl text-sm font-mono focus:outline-none focus:border-[#158052] transition-colors"
+              />
+            </div>
+
+            <div className="w-full sm:w-auto">
+              <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-[#8b94a5] mb-2">
+                Sampai Tanggal
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full bg-[#090b0e] border border-[#222834] text-white px-3.5 py-2.5 rounded-xl text-sm font-mono focus:outline-none focus:border-[#158052] transition-colors"
+              />
+            </div>
+
+            {(filterFisherman !== "all" || startDate || endDate) && (
+              <button
+                onClick={resetFilters}
+                className="px-4 py-2.5 rounded-xl bg-[#151922] border border-[#262c3a] text-xs font-mono text-[#9aa3b2] hover:text-white transition-colors"
+              >
+                Reset Filter
+              </button>
+            )}
           </div>
 
-          {(filterFisherman !== "all" || startDate || endDate) && (
-            <button
-              onClick={resetFilters}
-              className="px-3 py-2 text-xs text-slate-400 hover:text-white underline"
-            >
-              Reset Filter
-            </button>
-          )}
-        </div>
-
-        {/* Tabel Transaksi */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-800/60 text-slate-400 text-xs uppercase">
-                <tr>
-                  <th className="px-5 py-3.5">Tanggal</th>
-                  <th className="px-5 py-3.5">Nelayan</th>
-                  <th className="px-5 py-3.5">Jenis</th>
-                  <th className="px-5 py-3.5">Rincian</th>
-                  <th className="px-5 py-3.5 text-right">Nominal</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {loading ? (
+          {/* Tabel Transaksi */}
+          <div className="bg-[#11141b] border border-[#1e232e] rounded-[28px] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-[#0d1017] text-[#8b94a5] text-[10px] font-bold uppercase tracking-[0.2em] border-b border-[#1e232e]">
                   <tr>
-                    <td
-                      colSpan={5}
-                      className="px-5 py-8 text-center text-slate-500"
-                    >
-                      Memuat transaksi buku kas...
-                    </td>
+                    <th className="px-6 py-4">Tanggal</th>
+                    <th className="px-6 py-4">Nelayan</th>
+                    <th className="px-6 py-4">Jenis</th>
+                    <th className="px-6 py-4">Rincian</th>
+                    <th className="px-6 py-4 text-right">Nominal</th>
                   </tr>
-                ) : transactions.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-5 py-8 text-center text-slate-500"
-                    >
-                      Tidak ada transaksi ditemukan pada filter ini.
-                    </td>
-                  </tr>
-                ) : (
-                  transactions.map((t) => (
-                    <tr key={t.id} className="hover:bg-slate-800/40 transition">
-                      <td className="px-5 py-3.5 text-xs text-slate-400 whitespace-nowrap">
-                        {new Date(t.occurred_at).toLocaleString("id-ID", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <Link
-                          href={`/fishermen/${t.fisherman_id}`}
-                          className="font-medium text-blue-400 hover:underline"
-                        >
-                          {t.fishermen?.name || "Nelayan"}
-                        </Link>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        {t.type === "catch" && (
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-950 text-emerald-400 border border-emerald-800">
-                            Setoran Ikan
-                          </span>
-                        )}
-                        {t.type === "advance" && (
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-950 text-amber-400 border border-amber-800">
-                            Kasbon
-                          </span>
-                        )}
-                        {t.type === "repayment" && (
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-950 text-sky-400 border border-sky-800">
-                            Pelunasan
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3.5 text-slate-300">
-                        {t.type === "catch" ? (
-                          <span>
-                            <strong className="text-white">{t.species}</strong>{" "}
-                            — {t.weight_kg} kg ×{" "}
-                            {formatRupiah(Number(t.price_per_kg || 0))}
-                          </span>
-                        ) : (
-                          <span>
-                            {t.note ||
-                              (t.type === "advance"
-                                ? "Pinjaman kasbon"
-                                : "Cicilan kasbon")}
-                          </span>
-                        )}
-                        {t.type === "catch" && t.note && (
-                          <p className="text-xs text-slate-500">{t.note}</p>
-                        )}
-                      </td>
+                </thead>
+                <tbody className="divide-y divide-[#1e232e]">
+                  {loading ? (
+                    <tr>
                       <td
-                        className={`px-5 py-3.5 text-right font-semibold whitespace-nowrap ${
-                          t.type === "catch"
-                            ? "text-emerald-400"
-                            : t.type === "advance"
-                              ? "text-amber-400"
-                              : "text-sky-400"
-                        }`}
+                        colSpan={5}
+                        className="px-6 py-12 text-center text-xs font-mono uppercase tracking-widest text-[#6d7687]"
                       >
-                        {formatRupiah(Number(t.amount))}
+                        Memuat transaksi buku kas...
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : transactions.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-6 py-12 text-center text-xs text-[#6d7687]"
+                      >
+                        Tidak ada transaksi ditemukan pada filter ini.
+                      </td>
+                    </tr>
+                  ) : (
+                    transactions.map((t) => (
+                      <tr
+                        key={t.id}
+                        className="hover:bg-[#151922] transition-colors"
+                      >
+                        <td className="px-6 py-4 font-mono text-xs text-[#8b94a5] whitespace-nowrap">
+                          {new Date(t.occurred_at).toLocaleString("id-ID", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Link
+                            href={`/fishermen/${t.fisherman_id}`}
+                            className="font-medium text-white hover:text-[#4ec38e] transition-colors"
+                          >
+                            {t.fishermen?.name || "Nelayan"}
+                          </Link>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {t.type === "catch" && (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-medium bg-[#101c17] text-[#4ec38e] border border-[#22382e]">
+                              Setoran Ikan
+                            </span>
+                          )}
+                          {t.type === "advance" && (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-medium bg-[#261f14] text-[#d9a05b] border border-[#3d311e]">
+                              Kasbon
+                            </span>
+                          )}
+                          {t.type === "repayment" && (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-medium bg-[#121f26] text-[#64a6bd] border border-[#213845]">
+                              Pelunasan
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-[#cfd5df]">
+                          {t.type === "catch" ? (
+                            <span>
+                              <strong className="text-white font-semibold">
+                                {t.species}
+                              </strong>{" "}
+                              <span className="text-[#6d7687]">&mdash;</span>{" "}
+                              <span className="font-mono text-xs">
+                                {t.weight_kg} kg ×{" "}
+                                {formatRupiah(Number(t.price_per_kg || 0))}
+                              </span>
+                            </span>
+                          ) : (
+                            <span>
+                              {t.note ||
+                                (t.type === "advance"
+                                  ? "Pinjaman kasbon"
+                                  : "Cicilan kasbon")}
+                            </span>
+                          )}
+                          {t.type === "catch" && t.note && (
+                            <p className="text-xs text-[#6d7687] mt-0.5">
+                              {t.note}
+                            </p>
+                          )}
+                        </td>
+                        <td
+                          className={`px-6 py-4 text-right font-mono text-xs sm:text-sm font-semibold tabular-nums whitespace-nowrap ${
+                            t.type === "catch"
+                              ? "text-[#4ec38e]"
+                              : t.type === "advance"
+                                ? "text-[#d9a05b]"
+                                : "text-[#64a6bd]"
+                          }`}
+                        >
+                          {formatRupiah(Number(t.amount))}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
 
       {/* Modal Tambah Transaksi Manual */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-[#090b0e]/85 flex items-center justify-center p-4 z-50">
           <form
             onSubmit={handleSubmit}
-            className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4 shadow-2xl"
+            className="w-full max-w-md bg-[#11141b] border border-[#1e232e] rounded-[28px] p-6 sm:p-8 space-y-5"
           >
-            <h2 className="text-lg font-bold text-white">
-              Catat Transaksi Manual
-            </h2>
+            <div className="flex items-center justify-between border-b border-[#1e232e] pb-4">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#4ec38e] block">
+                  PENCATATAN LANGSUNG
+                </span>
+                <h2 className="text-lg font-semibold text-white mt-0.5">
+                  Catat Transaksi Manual
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-[#151922] border border-[#262c3a] text-xs text-[#9aa3b2] hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
 
             {formError && (
-              <p className="text-xs text-red-400 bg-red-950/50 border border-red-900 p-2.5 rounded-lg">
+              <p className="text-xs text-[#f28b96] bg-[#241316] border border-[#4a2026] p-3 rounded-2xl">
                 {formError}
               </p>
             )}
 
             {/* Tab Jenis Transaksi */}
-            <div className="grid grid-cols-3 gap-2 bg-slate-950 p-1 rounded-lg border border-slate-800">
+            <div className="grid grid-cols-3 gap-1.5 bg-[#090b0e] p-1.5 rounded-2xl border border-[#1e232e]">
               {[
                 { key: "catch", label: "Tangkapan" },
                 { key: "advance", label: "Kasbon" },
@@ -389,10 +477,10 @@ export default function TransactionsPage() {
                   onClick={() =>
                     setTxnType(tab.key as "catch" | "advance" | "repayment")
                   }
-                  className={`py-2 text-xs font-medium rounded-md transition ${
+                  className={`py-2 text-xs font-semibold rounded-xl transition-colors ${
                     txnType === tab.key
-                      ? "bg-blue-600 text-white"
-                      : "text-slate-400 hover:text-slate-200"
+                      ? "bg-[#158052] text-white"
+                      : "text-[#8b94a5] hover:text-white"
                   }`}
                 >
                   {tab.label}
@@ -400,9 +488,9 @@ export default function TransactionsPage() {
               ))}
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <label className="block text-xs text-slate-400 mb-1">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
                   Pilih Nelayan *
                 </label>
                 <select
@@ -411,7 +499,7 @@ export default function TransactionsPage() {
                   onChange={(e) =>
                     setForm({ ...form, fisherman_id: e.target.value })
                   }
-                  className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#090b0e] border border-[#222834] text-white px-3.5 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#158052]"
                 >
                   <option value="" disabled>
                     -- Pilih Nelayan --
@@ -429,7 +517,7 @@ export default function TransactionsPage() {
               {txnType === "catch" ? (
                 <>
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
                       Jenis Ikan *
                     </label>
                     <input
@@ -440,13 +528,13 @@ export default function TransactionsPage() {
                       onChange={(e) =>
                         setForm({ ...form, species: e.target.value })
                       }
-                      className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                      className="w-full bg-[#090b0e] border border-[#222834] text-white placeholder-[#525b6c] px-3.5 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#158052]"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
                         Berat (kg) *
                       </label>
                       <input
@@ -459,11 +547,11 @@ export default function TransactionsPage() {
                         onChange={(e) =>
                           setForm({ ...form, weight_kg: e.target.value })
                         }
-                        className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                        className="w-full bg-[#090b0e] border border-[#222834] text-white placeholder-[#525b6c] px-3.5 py-2.5 rounded-xl text-sm font-mono focus:outline-none focus:border-[#158052]"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-slate-400 mb-1">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
                         Harga / kg (Rp) *
                       </label>
                       <input
@@ -475,24 +563,24 @@ export default function TransactionsPage() {
                         onChange={(e) =>
                           setForm({ ...form, price_per_kg: e.target.value })
                         }
-                        className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                        className="w-full bg-[#090b0e] border border-[#222834] text-white placeholder-[#525b6c] px-3.5 py-2.5 rounded-xl text-sm font-mono focus:outline-none focus:border-[#158052]"
                       />
                     </div>
                   </div>
 
                   {/* Kalkulasi Otomatis Read-Only */}
-                  <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg flex items-center justify-between">
-                    <span className="text-xs text-slate-400">
-                      Total Otomatis (Berat × Harga):
+                  <div className="bg-[#101c17] border border-[#22382e] px-4 py-3 rounded-2xl flex items-center justify-between">
+                    <span className="text-xs text-[#8ba398]">
+                      Total Otomatis:
                     </span>
-                    <span className="text-base font-bold text-emerald-400">
+                    <span className="font-mono text-base font-bold text-[#4ec38e]">
                       {formatRupiah(Math.round(calculatedCatchAmount))}
                     </span>
                   </div>
                 </>
               ) : (
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
                     {txnType === "advance"
                       ? "Nominal Kasbon (Rp) *"
                       : "Nominal Pelunasan (Rp) *"}
@@ -506,13 +594,13 @@ export default function TransactionsPage() {
                     onChange={(e) =>
                       setForm({ ...form, amount: e.target.value })
                     }
-                    className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#090b0e] border border-[#222834] text-white placeholder-[#525b6c] px-3.5 py-2.5 rounded-xl text-sm font-mono focus:outline-none focus:border-[#158052]"
                   />
                 </div>
               )}
 
               <div>
-                <label className="block text-xs text-slate-400 mb-1">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
                   Waktu Transaksi
                 </label>
                 <input
@@ -521,12 +609,12 @@ export default function TransactionsPage() {
                   onChange={(e) =>
                     setForm({ ...form, occurred_at: e.target.value })
                   }
-                  className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#090b0e] border border-[#222834] text-white px-3.5 py-2.5 rounded-xl text-sm font-mono focus:outline-none focus:border-[#158052]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs text-slate-400 mb-1">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-[#8b94a5] mb-1.5">
                   Catatan (Opsional)
                 </label>
                 <input
@@ -534,23 +622,23 @@ export default function TransactionsPage() {
                   placeholder="cth: Kasbon solar melaut"
                   value={form.note}
                   onChange={(e) => setForm({ ...form, note: e.target.value })}
-                  className="w-full bg-slate-800 border border-slate-700 text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#090b0e] border border-[#222834] text-white placeholder-[#525b6c] px-3.5 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#158052]"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#1e232e]">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 text-sm text-slate-400 hover:text-white"
+                className="px-4 py-2.5 text-xs font-medium text-[#8b94a5] hover:text-white transition-colors"
               >
                 Batal
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg disabled:opacity-50"
+                className="px-6 py-2.5 text-xs uppercase tracking-wider font-bold bg-[#158052] hover:bg-[#19935f] text-white rounded-full transition-colors disabled:opacity-50"
               >
                 {submitting ? "Menyimpan..." : "Simpan Transaksi"}
               </button>
