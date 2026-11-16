@@ -266,75 +266,14 @@ export default function Home() {
 
             {/* Right Solid Executive Ledger Card (5 cols) */}
             <div className="lg:col-span-5 relative mt-6 lg:mt-0">
-              <div className="matte-card rounded-[32px] p-7 sm:p-8">
-                <div className="flex items-center justify-between border-b border-[#1e232e] pb-5">
-                  <div>
-                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#4ec38e] block">
-                      RINGKASAN BUKU KAS • 21:00 WIB
-                    </span>
-                    <h3 className="text-base font-semibold text-white mt-1">
-                      Samudra Jaya (Demo)
-                    </h3>
-                  </div>
-                  <span className="px-3 py-1 rounded-full bg-[#101c17] border border-[#22382e] text-[10px] font-mono text-[#4ec38e]">
-                    REAL-TIME
-                  </span>
-                </div>
-
-                {/* Financial Snapshot */}
-                <div className="mt-6 space-y-4">
-                  <div className="rounded-2xl bg-[#151922] border border-[#222834] p-4">
-                    <span className="text-[10px] uppercase tracking-widest text-[#8b94a5]">
-                      Total Nilai Tangkapan Hari Ini
-                    </span>
-                    <div className="mt-1 flex items-baseline justify-between">
-                      <span className="font-mono text-2xl font-semibold text-white">
-                        Rp 18.450.000
-                      </span>
-                      <span className="text-xs font-mono text-[#4ec38e]">
-                        +14.2%
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3.5">
-                    <div className="rounded-2xl bg-[#151922] border border-[#222834] p-4">
-                      <span className="text-[10px] uppercase tracking-wider text-[#8b94a5] block">
-                        Kasbon Beredar
-                      </span>
-                      <span className="font-mono text-sm font-semibold text-[#d9a05b] mt-1 block">
-                        Rp 4.120.000
-                      </span>
-                    </div>
-                    <div className="rounded-2xl bg-[#151922] border border-[#222834] p-4">
-                      <span className="text-[10px] uppercase tracking-wider text-[#8b94a5] block">
-                        Anomali Statistik
-                      </span>
-                      <span className="font-mono text-sm font-semibold text-[#64a6bd] mt-1 block">
-                        0 Terdeteksi
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Mini Fisherman Credit Preview */}
-                  <div className="rounded-2xl border border-[#22382e] bg-[#101c17] p-4 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase tracking-widest text-[#4ec38e] block">
-                        Indikasi Kelayakan Kredit
-                      </span>
-                      <span className="text-sm font-medium text-white">
-                        Pak Wayan • KM Bahari 02
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-mono text-xl font-bold text-[#4ec38e]">
-                        88
-                      </span>
-                      <span className="text-[10px] text-[#8b94a5]">/100</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <Image
+                src="/images/hero.png"
+                alt="Hero Image"
+                width={500}
+                height={500}
+                className="rounded-[32px]"
+                loading="eager"
+              />
 
               {/* Solid Overlapping Badge */}
               <div className="hidden sm:block absolute -bottom-7 -left-6 matte-card-elevated px-5 py-4 rounded-2xl max-w-[210px]">
@@ -936,9 +875,12 @@ export default function Home() {
             <div className="md:col-span-5 flex flex-col gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-[#151922] border border-[#262c3a] flex items-center justify-center">
-                  <span className="font-serif italic text-sm text-[#4ec38e]">
-                    Tk
-                  </span>
+                  <Image
+                    src="/images/logo.png"
+                    alt="Logo TangkapanKu"
+                    width={500}
+                    height={500}
+                  />
                 </div>
                 <span className="text-xs font-bold tracking-[0.25em] text-white uppercase">
                   TANGKAPANKU
