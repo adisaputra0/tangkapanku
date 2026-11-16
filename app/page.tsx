@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 type InputMode = "suara" | "nota" | "teks";
 
@@ -112,10 +113,13 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6 md:px-12 flex justify-between items-center">
           {/* Brand Mark */}
           <Link href="/" className="flex items-center gap-3.5 group">
-            <div className="w-10 h-10 rounded-full bg-[#151922] border border-[#262c3a] flex items-center justify-center transition-colors duration-300 group-hover:bg-[#158052] group-hover:border-[#158052]">
-              <span className="font-serif italic font-semibold text-lg text-[#ececec] group-hover:text-white select-none">
-                Tk
-              </span>
+            <div className="w-15 h-15 rounded-full bg-[#151922] border border-[#262c3a] flex items-center justify-center transition-colors duration-300">
+              <Image
+                src="/images/logo.png"
+                alt="Logo TangkapanKu"
+                width={500}
+                height={500}
+              />
             </div>
             <div className="flex flex-col">
               <span className="text-xs font-bold tracking-[0.26em] text-white uppercase">
@@ -893,14 +897,6 @@ export default function Home() {
                     admin@tangkapanku.com
                   </span>
                 </div>
-                <button
-                  onClick={() =>
-                    copyCredential("admin@tangkapanku.com", "email")
-                  }
-                  className="text-[11px] font-mono px-3 py-1.5 rounded-full border border-[#262c3a] bg-[#151922] text-[#4ec38e] hover:bg-[#158052] hover:text-white transition-colors"
-                >
-                  {copiedKey === "email" ? "Tersalin" : "Salin"}
-                </button>
               </div>
 
               <div className="rounded-2xl border border-[#222834] bg-[#090b0e] px-5 py-4 flex items-center justify-between">
@@ -912,12 +908,6 @@ export default function Home() {
                     TangkapanKu123!
                   </span>
                 </div>
-                <button
-                  onClick={() => copyCredential("TangkapanKu123!", "pass")}
-                  className="text-[11px] font-mono px-3 py-1.5 rounded-full border border-[#262c3a] bg-[#151922] text-[#4ec38e] hover:bg-[#158052] hover:text-white transition-colors"
-                >
-                  {copiedKey === "pass" ? "Tersalin" : "Salin"}
-                </button>
               </div>
             </div>
 

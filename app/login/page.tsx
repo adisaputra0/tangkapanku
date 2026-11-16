@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -54,10 +55,13 @@ export default function LoginPage() {
       {/* Top Minimalist Navigation */}
       <header className="max-w-7xl w-full mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3.5 group">
-          <div className="w-9 h-9 rounded-full bg-[#151922] border border-[#262c3a] flex items-center justify-center transition-colors duration-200 group-hover:bg-[#158052] group-hover:border-[#158052]">
-            <span className="font-serif italic font-semibold text-base text-[#ececec] group-hover:text-white select-none">
-              Tk
-            </span>
+          <div className="w-15 h-15 rounded-full bg-[#151922] border border-[#262c3a] flex items-center justify-center transition-colors duration-300">
+            <Image
+              src="/images/logo.png"
+              alt="Logo TangkapanKu"
+              width={500}
+              height={500}
+            />
           </div>
           <div className="flex flex-col">
             <span className="text-xs font-bold tracking-[0.26em] text-white uppercase">
