@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Sidebar from "@/components/Sidebar";
 
 interface DailyReport {
   id: string;
@@ -35,25 +35,47 @@ const formatRupiah = (num: number) =>
   }).format(num);
 
 export default function ReportsPage() {
+  const [orgInfo, setOrgInfo] = useState<{
+    name: string;
+    location: string | null;
+    pendingDrafts: number;
+  }>({ name: "Organisasi Pengepul", location: null, pendingDrafts: 0 });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const [reports, setReports] = useState<DailyReport[]>([]);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [toast, setToast] = useState("");
 
-  const fetchReports = async () => {
+  const fetchInitialData = async () => {
     setLoading(true);
-    const res = await fetch("/api/reports");
-    if (res.ok) {
-      const json = await res.json();
+    const [repRes, dashRes] = await Promise.all([
+      fetch("/api/reports"),
+      fetch("/api/dashboard"),
+    ]);
+
+    if (repRes.ok) {
+      const json = await repRes.json();
       setReports(json.reports || []);
       setAnomalies(json.anomalies || []);
+    }
+
+    if (dashRes.ok) {
+      const dJson = await dashRes.json();
+      if (dJson.organization) {
+        setOrgInfo({
+          name: dJson.organization.name,
+          location: dJson.organization.location,
+          pendingDrafts: dJson.summary?.pending_drafts || 0,
+        });
+      }
     }
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchReports();
+    fetchInitialData();
   }, []);
 
   const handleGenerateNow = async () => {
@@ -74,218 +96,280 @@ export default function ReportsPage() {
       return;
     }
 
-    setToast(data.message || "Laporan berhasil dibuat!");
-    fetchReports();
+    setToast(data.message || "Laporan malam berhasil disusun!");
+    fetchInitialData();
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
+    <div className="min-h-screen bg-[#090b0e] text-[#ececec]">
+      {/* Reusable Sidebar */}
+      <Sidebar
+        orgName={orgInfo.name}
+        orgLocation={orgInfo.location}
+        pendingDrafts={orgInfo.pendingDrafts}
+        mobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
+      />
+
+      {/* Main Content Wrapper */}
+      <div className="lg:pl-72 flex flex-col min-h-screen">
+        {/* Mobile Top Header */}
+        <header className="lg:hidden sticky top-0 z-20 bg-[#090b0e] border-b border-[#1e232e] px-5 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="text-sm text-slate-400 hover:text-white"
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="w-9 h-9 rounded-xl bg-[#11141b] border border-[#1e232e] flex flex-col items-center justify-center gap-1.5"
+              aria-label="Buka Sidebar"
             >
-              ← Dashboard
-            </Link>
-            <span className="text-slate-700">|</span>
+              <span className="w-4 h-[1.5px] bg-[#ececec] rounded" />
+              <span className="w-3 h-[1.5px] bg-[#4ec38e] rounded" />
+              <span className="w-4 h-[1.5px] bg-[#ececec] rounded" />
+            </button>
             <div>
-              <h1 className="text-lg font-bold text-white">
-                Laporan Malam Otomatis
-              </h1>
-              <p className="text-xs text-slate-400">
-                Dijadwalkan setiap hari pukul 21:00 WIB
-              </p>
+              <span className="text-[10px] font-bold tracking-[0.2em] text-[#4ec38e] uppercase block">
+                LAPORAN MALAM
+              </span>
+              <span className="text-xs font-semibold text-white truncate max-w-[160px] block">
+                {orgInfo.name}
+              </span>
             </div>
           </div>
 
           <button
             onClick={handleGenerateNow}
             disabled={generating}
-            className="px-4 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition disabled:opacity-50"
+            className="px-3.5 py-2 rounded-full bg-[#158052] text-white text-[11px] font-bold uppercase tracking-wider disabled:opacity-50"
           >
-            {generating
-              ? "Menghitung & Menyusun Narasi..."
-              : "⚡ Buat laporan sekarang"}
+            {generating ? "Proses..." : "⚡ Buat"}
           </button>
-        </div>
-      </header>
+        </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-        {toast && (
-          <div className="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-sm flex items-center justify-between">
-            <span>✓ {toast}</span>
-            <button onClick={() => setToast("")} className="text-xs underline">
-              Tutup
-            </button>
-          </div>
-        )}
+        {/* Main Workspace */}
+        <main className="flex-1 max-w-6xl w-full mx-auto px-5 sm:px-8 lg:px-10 py-8 space-y-8">
+          {/* Editorial Page Header */}
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[#1e232e] pb-6">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-[#4ec38e] block mb-1.5">
+                CRON HARIAN • 21:00 WIB
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-white">
+                Laporan Malam{" "}
+                <span className="font-serif italic font-normal text-[#34a875]">
+                  Otomatis
+                </span>{" "}
+                &amp; Anomali
+              </h1>
+            </div>
 
-        {loading ? (
-          <div className="text-center py-12 text-slate-500">
-            Memuat arsip laporan malam...
-          </div>
-        ) : reports.length === 0 ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center space-y-3">
-            <p className="text-slate-400 text-sm">
-              Belum ada laporan harian yang tersimpan.
-            </p>
             <button
               onClick={handleGenerateNow}
               disabled={generating}
-              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg"
+              className="px-5 py-2.5 text-xs uppercase tracking-[0.16em] font-bold bg-[#158052] hover:bg-[#19935f] text-white rounded-full transition-colors disabled:opacity-50 self-start sm:self-auto"
             >
-              Buat laporan sekarang
+              {generating ? "Menyusun Narasi AI..." : "Buat Laporan Sekarang"}
             </button>
           </div>
-        ) : (
-          <div className="space-y-6">
-            {reports.map((report) => {
-              const dayAnomalies = anomalies.filter(
-                (a) => a.report_date === report.report_date,
-              );
-              const avgPrices = report.metrics?.avg_price || {};
 
-              return (
-                <article
-                  key={report.id}
-                  className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5 shadow-xl"
-                >
-                  {/* Header Tanggal & Model */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-4">
-                    <div>
-                      <span className="text-xs uppercase tracking-wider text-blue-400 font-semibold">
-                        Ringkasan Operasional
-                      </span>
-                      <h2 className="text-xl font-bold text-white mt-0.5">
-                        {new Date(
-                          `${report.report_date}T00:00:00`,
-                        ).toLocaleDateString("id-ID", {
-                          weekday: "long",
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </h2>
+          {/* Success Toast */}
+          {toast && (
+            <div className="p-4 rounded-2xl bg-[#101c17] border border-[#22382e] text-[#4ec38e] text-xs sm:text-sm flex items-center justify-between gap-4">
+              <span>✓ {toast}</span>
+              <button
+                onClick={() => setToast("")}
+                className="text-xs font-mono uppercase tracking-wider text-[#8ba398] hover:text-white"
+              >
+                Tutup
+              </button>
+            </div>
+          )}
+
+          {/* Archive Content */}
+          {loading ? (
+            <div className="py-16 text-center text-xs font-mono uppercase tracking-[0.22em] text-[#6d7687]">
+              Memuat arsip laporan malam...
+            </div>
+          ) : reports.length === 0 ? (
+            <div className="bg-[#11141b] border border-[#1e232e] rounded-[28px] p-12 text-center space-y-4">
+              <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-[#6d7687] block">
+                ARSIP KOSONG
+              </span>
+              <p className="text-sm text-[#9aa3b2] max-w-md mx-auto leading-relaxed">
+                Belum ada laporan harian otomatis yang tersimpan untuk
+                organisasi ini.
+              </p>
+              <button
+                onClick={handleGenerateNow}
+                disabled={generating}
+                className="px-6 py-3 text-xs uppercase tracking-[0.18em] font-bold bg-[#158052] hover:bg-[#19935f] text-white rounded-full transition-colors"
+              >
+                Buat Laporan Pertama Sekarang
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {reports.map((report) => {
+                const dayAnomalies = anomalies.filter(
+                  (a) => a.report_date === report.report_date,
+                );
+                const avgPrices = report.metrics?.avg_price || {};
+
+                return (
+                  <article
+                    key={report.id}
+                    className="bg-[#11141b] border border-[#1e232e] rounded-[28px] p-6 sm:p-8 space-y-6"
+                  >
+                    {/* Header Tanggal & Model */}
+                    <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#1e232e] pb-5">
+                      <div>
+                        <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#4ec38e] block mb-1">
+                          RINGKASAN OPERASIONAL HARIAN
+                        </span>
+                        <h2 className="text-xl sm:text-2xl font-light text-white">
+                          {new Date(
+                            `${report.report_date}T00:00:00`,
+                          ).toLocaleDateString("id-ID", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          })}
+                        </h2>
+                      </div>
+
+                      {report.model && (
+                        <span className="px-3 py-1 font-mono text-[10px] rounded-full bg-[#151922] text-[#9aa3b2] border border-[#262c3a]">
+                          AI: {report.model}
+                        </span>
+                      )}
                     </div>
 
-                    {report.model && (
-                      <span className="px-2.5 py-1 text-xs rounded-md bg-slate-800 text-slate-400 border border-slate-700">
-                        AI: {report.model}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Narasi AI */}
-                  <div className="bg-slate-950/90 border border-slate-800 p-4 rounded-xl">
-                    <p className="text-sm text-slate-200 leading-relaxed">
-                      {report.narrative || "Tidak ada ringkasan narasi."}
-                    </p>
-                  </div>
-
-                  {/* Grid Metrik Harian */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="bg-slate-800/50 border border-slate-800 p-3.5 rounded-xl">
-                      <p className="text-xs text-slate-400">Total Berat Ikan</p>
-                      <p className="text-lg font-bold text-white mt-0.5">
-                        {report.metrics?.total_kg ?? 0} kg
+                    {/* Narasi AI */}
+                    <div className="bg-[#090b0e] border border-[#1e232e] p-5 rounded-2xl">
+                      <p className="text-xs sm:text-sm text-[#cfd5df] leading-relaxed font-light">
+                        {report.narrative || "Tidak ada ringkasan narasi."}
                       </p>
                     </div>
 
-                    <div className="bg-slate-800/50 border border-slate-800 p-3.5 rounded-xl">
-                      <p className="text-xs text-slate-400">Nilai Tangkapan</p>
-                      <p className="text-lg font-bold text-emerald-400 mt-0.5">
-                        {formatRupiah(Number(report.metrics?.total_value || 0))}
-                      </p>
-                    </div>
-
-                    <div className="bg-slate-800/50 border border-slate-800 p-3.5 rounded-xl">
-                      <p className="text-xs text-slate-400">Kasbon Keluar</p>
-                      <p className="text-lg font-bold text-amber-400 mt-0.5">
-                        {formatRupiah(
-                          Number(report.metrics?.advance_issued || 0),
-                        )}
-                      </p>
-                    </div>
-
-                    <div className="bg-slate-800/50 border border-slate-800 p-3.5 rounded-xl">
-                      <p className="text-xs text-slate-400">Ikan Terbanyak</p>
-                      <p className="text-lg font-bold text-sky-400 mt-0.5">
-                        {report.metrics?.top_species || "-"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Rata-rata Harga per Jenis Ikan */}
-                  {Object.keys(avgPrices).length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold text-slate-400 uppercase mb-2">
-                        Rata-rata Harga Beli per Jenis Ikan
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {Object.entries(avgPrices).map(([species, price]) => (
-                          <span
-                            key={species}
-                            className="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-slate-200"
-                          >
-                            <strong className="text-white">{species}:</strong>{" "}
-                            {formatRupiah(Number(price))}/kg
+                    {/* Grid Metrik Harian */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="bg-[#090b0e] border border-[#1e232e] p-4 rounded-2xl">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#8b94a5]">
+                          Total Berat Ikan
+                        </p>
+                        <p className="font-mono text-lg font-bold text-white mt-1.5 tabular-nums">
+                          {report.metrics?.total_kg ?? 0}{" "}
+                          <span className="font-sans text-xs font-normal text-[#6d7687]">
+                            kg
                           </span>
-                        ))}
+                        </p>
+                      </div>
+
+                      <div className="bg-[#101c17] border border-[#22382e] p-4 rounded-2xl">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#4ec38e]">
+                          Nilai Tangkapan
+                        </p>
+                        <p className="font-mono text-lg font-bold text-white mt-1.5 tabular-nums">
+                          {formatRupiah(
+                            Number(report.metrics?.total_value || 0),
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="bg-[#090b0e] border border-[#1e232e] p-4 rounded-2xl">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#8b94a5]">
+                          Kasbon Keluar
+                        </p>
+                        <p className="font-mono text-lg font-bold text-[#d9a05b] mt-1.5 tabular-nums">
+                          {formatRupiah(
+                            Number(report.metrics?.advance_issued || 0),
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="bg-[#090b0e] border border-[#1e232e] p-4 rounded-2xl">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#8b94a5]">
+                          Ikan Terbanyak
+                        </p>
+                        <p className="font-serif italic text-lg text-[#64a6bd] mt-1">
+                          {report.metrics?.top_species || "-"}
+                        </p>
                       </div>
                     </div>
-                  )}
 
-                  {/* Anomali Terdeteksi */}
-                  <div className="space-y-2 pt-1">
-                    <p className="text-xs font-semibold text-slate-400 uppercase">
-                      Deteksi Anomali ({dayAnomalies.length})
-                    </p>
-
-                    {dayAnomalies.length === 0 ? (
-                      <p className="text-xs text-slate-500">
-                        Tidak ada anomali harga maupun kasbon pada tanggal ini.
-                      </p>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {dayAnomalies.map((anom) => (
-                          <div
-                            key={anom.id}
-                            className="p-3.5 rounded-xl bg-red-950/30 border border-red-900/60 space-y-1"
-                          >
-                            <div className="flex items-center justify-between text-xs font-semibold text-red-400">
-                              <span>
-                                {anom.kind === "price_drop"
-                                  ? "📉 Penurunan Harga Ikan"
-                                  : anom.kind === "advance_spike"
-                                    ? "⚠️ Lonjakan Kasbon Nelayan"
-                                    : "📦 Outlier Berat Setoran"}
+                    {/* Rata-rata Harga per Jenis Ikan */}
+                    {Object.keys(avgPrices).length > 0 && (
+                      <div className="space-y-2.5">
+                        <p className="text-[10px] font-bold text-[#8b94a5] uppercase tracking-[0.2em]">
+                          Rata-Rata Harga Beli per Jenis Ikan
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(avgPrices).map(([species, price]) => (
+                            <span
+                              key={species}
+                              className="px-3.5 py-1.5 rounded-full bg-[#151922] border border-[#262c3a] text-xs text-[#cfd5df]"
+                            >
+                              <strong className="text-white font-medium">
+                                {species}:
+                              </strong>{" "}
+                              <span className="font-mono text-[#4ec38e]">
+                                {formatRupiah(Number(price))}/kg
                               </span>
-                              <span className="px-2 py-0.5 rounded bg-red-950 border border-red-800">
-                                Severity {anom.severity}/3
-                              </span>
-                            </div>
-                            {anom.fishermen?.name && (
-                              <p className="text-xs font-medium text-amber-300">
-                                Nelayan: {anom.fishermen.name}
-                              </p>
-                            )}
-                            <p className="text-xs text-slate-300 leading-relaxed">
-                              {anom.detail?.message}
-                            </p>
-                          </div>
-                        ))}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     )}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </main>
+
+                    {/* Anomali Terdeteksi */}
+                    <div className="space-y-3 pt-2 border-t border-[#1e232e]">
+                      <p className="text-[10px] font-bold text-[#8b94a5] uppercase tracking-[0.2em]">
+                        Deteksi Anomali Statistik ({dayAnomalies.length})
+                      </p>
+
+                      {dayAnomalies.length === 0 ? (
+                        <div className="p-3.5 rounded-2xl bg-[#101c17] border border-[#22382e] text-xs text-[#4ec38e]">
+                          Tidak ada anomali harga maupun kasbon yang terdeteksi
+                          pada tanggal ini.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {dayAnomalies.map((anom) => (
+                            <div
+                              key={anom.id}
+                              className="p-4 rounded-2xl bg-[#241316] border border-[#4a2026] space-y-1.5"
+                            >
+                              <div className="flex items-center justify-between text-xs font-semibold text-[#f28b96]">
+                                <span>
+                                  {anom.kind === "price_drop"
+                                    ? "Penurunan Harga Ikan"
+                                    : anom.kind === "advance_spike"
+                                      ? "Lonjakan Kasbon Nelayan"
+                                      : "Outlier Berat Setoran"}
+                                </span>
+                                <span className="font-mono text-[10px] px-2.5 py-0.5 rounded-full bg-[#36181d]">
+                                  Severity {anom.severity}/3
+                                </span>
+                              </div>
+                              {anom.fishermen?.name && (
+                                <p className="text-xs font-medium text-[#d9a05b]">
+                                  Nelayan: {anom.fishermen.name}
+                                </p>
+                              )}
+                              <p className="text-xs text-[#e0c3c7] leading-relaxed">
+                                {anom.detail?.message}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
