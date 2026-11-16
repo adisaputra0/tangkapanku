@@ -28,6 +28,20 @@ const transactionSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
+type TransactionInsert = {
+  org_id: string;
+  fisherman_id: string;
+  type: "catch" | "advance" | "repayment";
+  species: string | null;
+  weight_kg: number | null;
+  price_per_kg: number | null;
+  amount: number;
+  note: string | null;
+  occurred_at: string;
+  source: "manual";
+  created_by: string;
+};
+
 export async function GET(request: Request) {
   try {
     const supabase = await createClient();
@@ -134,19 +148,19 @@ export async function POST(request: Request) {
       : new Date().toISOString();
 
     // Hitung amount secara deterministik untuk catch
-    const insertData =
+    const insertData: TransactionInsert =
       payload.type === "catch"
         ? {
             org_id: membership.org_id,
             fisherman_id: payload.fisherman_id,
-            type: "catch" as const,
+            type: "catch",
             species: payload.species.trim(),
             weight_kg: payload.weight_kg,
             price_per_kg: payload.price_per_kg,
             amount: Math.round(payload.weight_kg * payload.price_per_kg),
             note: payload.note?.trim() || null,
             occurred_at: occurredAt,
-            source: "manual" as const,
+            source: "manual",
             created_by: user.id,
           }
         : {
@@ -159,7 +173,7 @@ export async function POST(request: Request) {
             amount: Math.round(payload.amount),
             note: payload.note?.trim() || null,
             occurred_at: occurredAt,
-            source: "manual" as const,
+            source: "manual",
             created_by: user.id,
           };
 

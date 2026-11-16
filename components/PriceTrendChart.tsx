@@ -53,8 +53,8 @@ export default function PriceTrendChart({
               borderColor: "#334155",
               color: "#f8fafc",
             }}
-            formatter={(value: number) => [
-              `Rp ${value.toLocaleString("id-ID")}/kg`,
+            formatter={(value) => [
+              `Rp ${Number(value ?? 0).toLocaleString("id-ID")}/kg`,
               "",
             ]}
           />
