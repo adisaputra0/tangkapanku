@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 
 interface Message {
   role: "user" | "assistant";
@@ -96,8 +97,13 @@ export default function LandingChatbot() {
           {/* Header Chat */}
           <div className="px-5 py-4 bg-[#101c17] border-b border-[#22382e] flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-[#158052] flex items-center justify-center text-white font-serif italic font-semibold text-sm">
-                TK
+              <div className="w-9 h-9">
+                <Image
+                  src="/images/logo.png"
+                  alt="Logo TangkapanKu"
+                  width={500}
+                  height={500}
+                />
               </div>
               <div>
                 <div className="flex items-center gap-2">
