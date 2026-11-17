@@ -386,8 +386,13 @@ export default function DashboardPage() {
                         key={f.fisherman_id}
                         className="hover:bg-[#151922] transition-colors"
                       >
-                        <td className="px-6 py-4 font-medium text-white whitespace-nowrap">
-                          {f.name}
+                        <td className="px-6 py-4 font-medium whitespace-nowrap">
+                          <Link
+                            href={`/fishermen/${f.fisherman_id}`}
+                            className="text-white hover:text-[#4ec38e] transition-colors"
+                          >
+                            {f.name}
+                          </Link>
                         </td>
                         <td className="px-6 py-4 font-mono text-xs sm:text-sm text-[#4ec38e] tabular-nums whitespace-nowrap">
                           {formatRupiah(Number(f.total_catch_value))}
